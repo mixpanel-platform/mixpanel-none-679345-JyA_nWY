@@ -9,8 +9,6 @@
   <body class="mixpanel-platform-body">
     <div class="mixpanel-platform-section">
       <div id="eventSelect" style="float: left;"></div>
-      <div id="by" class="mixpanel-platform-label" style="margin-left: 10px; display: none;">by</div>
-      <div id="propSelect" style="float: left;"></div>
       <div id="dateSelect" style="float: right;"></div>
       <div style="clear: both;"></div>
       <div id="graph"></div>
@@ -18,7 +16,6 @@
     <div id="table"></div>
     <script>
       var eventSelect = $('#eventSelect').MPEventSelect();
-      var propSelect  = $('#propSelect').MPPropertySelect();
       var dateSelect  = $('#dateSelect').MPDatepicker();
       var eventGraph  = $('#graph').MPChart({chartType: 'line'});
       var eventTable  = $('#table').MPTable({
@@ -28,22 +25,37 @@
 
       var runQuery = function() {
         var eventName = eventSelect.MPEventSelect('value'),
-            propName  = propSelect.MPPropertySelect('value'),
             dateRange = dateSelect.MPDatepicker('value');
 
         if (eventName) {
-          MP.api.segment(eventName, propName, dateRange).done(function(results) {
-            eventGraph.MPChart('setData', results);
-            eventTable.MPTable('setData', results);
+          MP.api.segment(eventName, '$device', dateRange).done(function(results) {
+            console.log(results.values());
+            var final = {};
+            data = results.values();
+            var keys = Object.keys(data);
+            for(i=0; i<keys.length; i++) {
+              if(keys[i] == 'undefined') {
+                final['Computer'] = data['undefined'];
+              } else if(keys[i] == 'iPad') {
+                final['Tablet'] = data['iPad'];
+              } else if(keys[i] == 'iPhone' || keys[i] == 'Android') {
+                if(typeof final['Mobile'] != "undefined"){
+                  var subkeys = Object.keys(data[keys[i]]);
+                  for(j=0; j<subkeys.length; j++) {
+                    final['Mobile'][subkeys[j]] += data[keys[i]][subkeys[j]];
+                  }
+                } else {
+                  final['Mobile'] = data[keys[i]];
+                }
+              }
+            }
+            console.log(final);
+            eventGraph.MPChart('setData', final);
+            eventTable.MPTable('setData', final);
           });
         }
       };
-      eventSelect.on('change', function(e, eventName) {
-        propSelect.MPPropertySelect('setEvent', eventName);
-        $("#by").show();
-        runQuery();
-      });
-      propSelect.on('change', runQuery);
+      eventSelect.on('change', runQuery);
       dateSelect.on('change', runQuery);
     </script>
   </body>
